@@ -1,0 +1,18 @@
+<html>
+<head>
+  <title>gum test</title>
+</head>
+<body>
+  <video id="tehvideo" width="800" height="600"></video>
+</body>
+<script>
+  window.navigator.mozGetUserMedia({video:true}, function(stream) {
+    console.log(stream);
+    alert("got stream!");
+    document.getElementById("tehvideo").src = stream;
+    document.getElementById("tehvideo").play();
+  }, function(err) {
+    alert("errro! " + err);
+  })
+</script>
+</html>

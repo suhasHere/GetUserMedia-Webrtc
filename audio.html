@@ -1,0 +1,18 @@
+<html>
+<head>
+  <title>gum test</title>
+</head>
+<body>
+  <audio id="tehaudio" />
+</body>
+<script>
+  window.navigator.mozGetUserMedia({audio:true}, function(stream) {
+    console.log(stream);
+    alert("got stream!" + stream);
+    document.getElementById("tehaudio").src = stream;
+    document.getElementById("tehaudio").play();
+  }, function(err) {
+    alert("errro! " + err);
+  })
+</script>
+</html>
