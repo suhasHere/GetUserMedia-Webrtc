@@ -1,0 +1,8 @@
+Instructions to test this patch
+--------------------------------
+1. Build Alder Default
+2. Apply Patch named media_enginebackend_webrtc
+3. Apply Patch named media_dom_webrtc
+4. Build Alder Again
+5. Open Video.html
+6. Done
