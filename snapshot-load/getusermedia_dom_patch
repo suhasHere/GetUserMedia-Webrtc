@@ -1,0 +1,184 @@
+# HG changeset patch
+# Parent 9991a47d3d9a7bda9eda4e0da334d234fc3df582
+ Dom patch for Webrtc backend
+
+diff --git a/dom/base/Makefile.in b/dom/base/Makefile.in
+--- a/dom/base/Makefile.in
++++ b/dom/base/Makefile.in
+@@ -117,16 +117,17 @@ ifdef MOZ_JSDEBUGGER
+ DEFINES += -DMOZ_JSDEBUGGER
+ endif
+ 
+ ifdef MOZ_B2G_RIL
+ DEFINES += -DMOZ_B2G_RIL
+ endif
+ 
+ include $(topsrcdir)/config/config.mk
++include $(topsrcdir)/media/webrtc/webrtc-config.mk
+ include $(topsrcdir)/ipc/chromium/chromium-config.mk
+ 
+ include $(topsrcdir)/config/rules.mk
+ 
+ LOCAL_INCLUDES += \
+ 		-I$(topsrcdir)/js/xpconnect/src \
+ 		-I$(topsrcdir)/js/xpconnect/wrappers \
+ 		-I$(topsrcdir)/xpcom/ds \
+diff --git a/dom/media/Makefile.in b/dom/media/Makefile.in
+--- a/dom/media/Makefile.in
++++ b/dom/media/Makefile.in
+@@ -30,9 +30,10 @@ EXPORTS_mozilla = \
+   MediaManager.h \
+   $(NULL)
+ 
+ CPPSRCS = \
+   MediaManager.cpp \
+   $(NULL)
+ 
+ include $(topsrcdir)/config/config.mk
++include $(topsrcdir)/media/webrtc/webrtc-config.mk
+ include $(topsrcdir)/config/rules.mk
+diff --git a/dom/media/MediaManager.cpp b/dom/media/MediaManager.cpp
+--- a/dom/media/MediaManager.cpp
++++ b/dom/media/MediaManager.cpp
+@@ -1,16 +1,16 @@
+ /* This Source Code Form is subject to the terms of the Mozilla Public
+  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+ #include "MediaManager.h"
+ 
+ #include "MediaStreamGraph.h"
+-#include "MediaEngineDefault.h"
++#include "MediaEngineWebrtc.h"
+ 
+ #include "nsIDOMFile.h"
+ #include "nsIEventTarget.h"
+ #include "nsIScriptGlobalObject.h"
+ 
+ #include "nsJSUtils.h"
+ #include "nsDOMFile.h"
+ 
+@@ -143,17 +143,17 @@ public:
+     // Add the listener to CallbackRunnables so it can be invalidated.
+     NS_DispatchToMainThread(new SuccessCallbackRunnable(
+       mSuccess, comStream.get(), mWindowID
+     ));
+     return NS_OK;
+   }
+ 
+ private:
+-  nsCOMPtr<MediaEngineSource> mSource;
++  nsRefPtr<MediaEngineSource> mSource;
+   TrackID mId;
+   nsCOMPtr<nsIDOMGetUserMediaSuccessCallback> mSuccess;
+   nsCOMPtr<nsIDOMGetUserMediaErrorCallback> mError;
+   PRUint64 mWindowID;
+   StreamListeners* mListeners;
+ };
+ 
+ /**
+@@ -192,17 +192,17 @@ public:
+ 
+     NS_DispatchToMainThread(new SuccessCallbackRunnable(
+       mSuccessCallback, file, mWindowID
+     ));
+     return NS_OK;
+   }
+ 
+ private:
+-  nsCOMPtr<MediaEngineSource> mSource;
++  nsRefPtr<MediaEngineSource> mSource;
+   PRUint32 mDuration;
+   nsCOMPtr<nsIDOMGetUserMediaSuccessCallback> mSuccessCallback;
+   nsCOMPtr<nsIDOMGetUserMediaErrorCallback>  mErrorCallback;
+   PRUint64 mWindowID;
+ };
+ 
+ /**
+  * Runs on a seperate thread and is responsible for enumerating devices.
+@@ -398,17 +398,17 @@ MediaManager::GetUserMedia(PRUint64 aWin
+ }
+ 
+ MediaEngine*
+ MediaManager::GetBackend()
+ {
+   // Plugin backends as appropriate. Only default is available for now, which
+   // also includes picture support for Android.
+   if (!mBackend) {
+-    mBackend = new MediaEngineDefault();
++    mBackend = new MediaEngineWebrtc();
+   }
+   return mBackend;
+ }
+ 
+ WindowTable*
+ MediaManager::GetActiveWindows()
+ {
+   return &mActiveWindows;
+diff --git a/dom/media/MediaManager.h b/dom/media/MediaManager.h
+--- a/dom/media/MediaManager.h
++++ b/dom/media/MediaManager.h
+@@ -11,16 +11,44 @@
+ 
+ #include "nsIDOMNavigatorUserMedia.h"
+ 
+ #include "stdio.h"
+ 
+ namespace mozilla {
+ 
+ /**
++ * This runnable is needed to start the media resource
++ * outside the MediaGraphThread where the listener is 
++ * invoked from.
++ */
++class StartMediaRunnable : public nsRunnable
++{
++public:
++ StartMediaRunnable(MediaEngineSource* aSource,
++    SourceMediaStream* aStream, TrackID aListenId)
++    : mSource(aSource)
++    , mStream(aStream)
++    , mId(aListenId) {}
++
++
++  NS_IMETHOD
++  Run()
++  {
++    mSource->Start(mStream,mId);
++    return NS_OK;
++  }
++
++private:
++  nsRefPtr<MediaEngineSource> mSource;
++  TrackID mId;
++  SourceMediaStream* mStream ;
++};
++
++/**
+  * This class is an implementation of MediaStreamListener. This is used
+  * to Start() and Stop() the underlying MediaEngineSource when MediaStreams
+  * are assigned and deassigned in content.
+  */
+ class GetUserMediaCallbackMediaStreamListener : public MediaStreamListener
+ {
+ public:
+   GetUserMediaCallbackMediaStreamListener(MediaEngineSource* aSource,
+@@ -60,17 +88,17 @@ public:
+   void NotifyOutput(MediaStreamGraph* aGraph) {}
+   void NotifyFinished(MediaStreamGraph* aGraph) {}
+   void NotifyQueuedTrackChanges(MediaStreamGraph* aGraph, TrackID aID,
+     TrackRate aTrackRate, TrackTicks aTrackOffset,
+     PRUint32 aTrackEvents, const MediaSegment& aQueuedMedia) {}
+   nsresult Run() { return NS_OK; }
+ 
+ private:
+-  nsCOMPtr<MediaEngineSource> mSource;
++  nsRefPtr<MediaEngineSource> mSource;
+   nsCOMPtr<nsDOMMediaStream> mStream;
+   TrackID mId;
+   bool mValid;
+ };
+ 
+ typedef nsTArray<nsRefPtr<GetUserMediaCallbackMediaStreamListener> > StreamListeners;
+ typedef nsClassHashtable<nsUint64HashKey, StreamListeners> WindowTable;
+ 
