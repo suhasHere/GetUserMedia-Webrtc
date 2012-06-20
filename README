@@ -1,8 +1,10 @@
 Instructions to test this patch
 --------------------------------
 1. Build Alder Default
-2. Apply Patch named webrtc-backend
-3. Apply Patch named media_dom_webrtc
-4. Build Alder Again
-5. Open Video.html
-6. Done
+2. Apply Patch named getusermedia_dom_patch from snapshot-load 
+3. Apply Patch named getusermedia_webrtc_backend from snapshot-load
+4. Add ac_add_options --enable-media-navigator to your .mozconfig 
+5. Add media.navigator.enabled to true preference in about:preferences page in the browser
+6. Build Alder Again
+7. Open Video.html , Audio.html or Snapshot.html for specific cases
+8. Done
