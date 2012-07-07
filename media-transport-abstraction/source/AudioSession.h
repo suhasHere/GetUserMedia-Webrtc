@@ -13,6 +13,7 @@
 #include "voice_engine/main/interface/voe_base.h"
 #include "voice_engine/main/interface/voe_volume_control.h"
 #include "voice_engine/main/interface/voe_codec.h"
+#include "voice_engine/main/interface/voe_file.h"
 #include "voice_engine/main/interface/voe_network.h"
 #include "voice_engine/main/interface/voe_external_media.h"
 
@@ -31,13 +32,12 @@ namespace mozilla {
  */
 class WebrtcAudioConduit  : public AudioSessionConduit			
 	      		           , public webrtc::Transport
-	      		           , public webrtc::VoEMediaProcess
 {
 
 public:
-
+  
   //AudioSessionConduit Implementation
-  void AttachRenderer(mozilla::RefPtr<AudioRenderer> aAudioRenderer);
+  int AttachRenderer(mozilla::RefPtr<AudioRenderer> aAudioRenderer);
   virtual void ReceivedRTPPacket(const void *data, int len);
   virtual void ReceivedRTCPPacket(const void *data, int len);
   virtual int ConfigureSendMediaCodec(CodecConfig* codecInfo);
@@ -48,6 +48,11 @@ public:
                            uint32_t samplingFreqHz,
                            uint64_t capture_time);
 
+  // Pull based API to get audio sample from the jitter buffe
+  virtual void GetAudioFrame(int16_t speechData[],
+                           uint32_t samplingFreqHz,
+                           uint64_t capture_delay,
+                           unsigned int& lengthSamples);
 
   
   // Webrtc transport implementation
@@ -55,14 +60,6 @@ public:
   virtual int SendRTCPPacket(int channel, const void *data, int len) ;
 
 	
-  // Webrtc external-media implementation.
-  virtual void Process(const int channel,
-			const webrtc::ProcessingTypes type,
-			WebRtc_Word16 audio10ms[],
-			const int length,
-			const int samplingFreq, 
-			const bool isStereo);
-
 	
   explicit WebrtcAudioConduit(): initDone(false)
 								,mChannel(-1)
@@ -93,6 +90,7 @@ private:
   webrtc::VoENetwork*  mPtrVoENetwork;
   webrtc::VoEBase*     mPtrVoEBase;
   webrtc::VoECodec*    mPtrVoECodec;
+  webrtc::VoEFile*     mPtrVoEFile;
   webrtc::VoEExternalMedia* mPtrVoEXmedia;
   bool mEnginePlaying;
   //local object

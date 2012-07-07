@@ -1,0 +1,326 @@
+# ***** BEGIN LICENSE BLOCK *****
+# Version: MPL 1.1/GPL 2.0/LGPL 2.1
+#
+# The contents of this file are subject to the Mozilla Public License Version
+# 1.1 (the "License"); you may not use this file except in compliance with
+# the License. You may obtain a copy of the License at
+# http://www.mozilla.org/MPL/
+#
+# Software distributed under the License is distributed on an "AS IS" basis,
+# WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+# for the specific language governing rights and limitations under the
+# License.
+#
+# The Original Code is Mozilla code.
+#
+# The Initial Developer of the Original Code is the Mozilla Foundation.
+# Portions created by the Initial Developer are Copyright (C) 2010
+# the Initial Developer. All Rights Reserved.
+#
+# Contributor(s):
+#  Chris Pearce <chris@pearce.org.nz>
+#
+# Alternatively, the contents of this file may be used under the terms of
+# either the GNU General Public License Version 2 or later (the "GPL"), or
+# the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+# in which case the provisions of the GPL or the LGPL are applicable instead
+# of those above. If you wish to allow use of your version of this file only
+# under the terms of either the GPL or the LGPL, and not to allow others to
+# use your version of this file under the terms of the MPL, indicate your
+# decision by deleting the provisions above and replace them with the notice
+# and other provisions required by the GPL or the LGPL. If you do not delete
+# the provisions above, a recipient may use your version of this file under
+# the terms of any one of the MPL, the GPL or the LGPL.
+#
+# ***** END LICENSE BLOCK *****
+
+
+DEPTH = ../../../
+topsrcdir = @top_srcdir@
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+include $(DEPTH)/config/autoconf.mk
+
+MODULE = test_mtransport
+
+DEFINES += -DHAVE_STRDUP -DNR_SOCKET='void *' \
+	$(NULL)
+
+LIBS		= \
+  $(DEPTH)/layout/media/$(LIB_PREFIX)gkmedias.$(LIB_SUFFIX) \
+  $(DEPTH)/xpcom/glue/$(LIB_PREFIX)xpcomglue_s.$(LIB_SUFFIX) \
+  $(DEPTH)/toolkit/xre/$(LIB_PREFIX)xulapp_s.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)jsipc_s.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)domipc_s.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)domplugins_s.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)mozipc_s.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)mozipdlgen_s.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)ipcshell_s.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)gfxipc_s.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)hal_s.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)dombindings_s.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)xpcom_core.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)ucvutil_s.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)chromium_s.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)snappy_s.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)thebes.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)gl.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)ycbcr.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)necko.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)uconv.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)i18n.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)chardet.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)jar50.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)startupcache.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)pref.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)htmlpars.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)imglib2.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)gkgfx.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)gklayout.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)docshell.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)embedcomponents.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)webbrwsr.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)nsappshell.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)txmgr.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)commandlines.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)toolkitcomps.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)pipboot.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)pipnss.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)appcomps.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)jsreflect.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)composer.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)telemetry.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)jsinspector.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)storagecomps.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)rdf.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)windowds.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)jsperf.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)gkplugin.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)places.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)tkautocomplete.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)satchel.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)pippki.$(LIB_SUFFIX) \
+  $(DEPTH)/intl/unicharutil/util/internal/$(LIB_PREFIX)unicharutil_s.$(LIB_SUFFIX) \
+  $(DEPTH)/rdf/util/src/$(LIB_PREFIX)rdfutil_external_s.$(LIB_SUFFIX) \
+  $(LIBS_DIR) \
+  $(MOZ_JS_LIBS) \
+  $(NSS_LIBS) \
+  $(MOZ_CAIRO_OSLIBS) \
+  $(MOZ_APP_EXTRA_LIBS) \
+  $(SQLITE_LIBS) \
+  $(MOZ_ALSA_LIBS) \
+  $(MOZ_GTK2_LIBS) \
+  $(MOZ_ZLIB_LIBS) \
+  $(MOZ_DBUS_GLIB_LIBS) \
+  $(NSPR_LIBS) \
+  $(DEPTH)/media/webrtc/trunk/testing/gtest_gtest/$(LIB_PREFIX)gtest.$(LIB_SUFFIX) \
+  $(NULL)
+
+ifdef MOZ_ENABLE_PROFILER_SPS
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)profiler.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifeq (windows,$(MOZ_WIDGET_TOOLKIT))
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)widget_windows.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifeq (os2,$(MOZ_WIDGET_TOOLKIT))
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)wdgtos2.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)widget_mac.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifeq (qt,$(MOZ_WIDGET_TOOLKIT))
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)widget_qt.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifdef ACCESSIBILITY
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)accessibility.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifdef MOZ_ENABLE_XREMOTE
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)remoteservice.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifdef MOZ_SPELLCHECK
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)spellchecker.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifdef MOZ_ZIPWRITER
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)zipwriter.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifdef MOZ_DEBUG
+ifdef ENABLE_TESTS
+COMPONENT_LIBS += gkdebug
+endif
+endif
+
+ifdef MOZ_JSDEBUGGER
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)jsdebugger.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifdef MOZ_PREF_EXTENSIONS
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)autoconfig.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifdef MOZ_AUTH_EXTENSION
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)auth.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifdef MOZ_PERMISSIONS
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)cookie.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)permissions.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifdef MOZ_UNIVERSALCHARDET
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)universalchardet.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifdef MOZ_ENABLE_GTK2
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)widget_gtk2.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifdef MOZ_ENABLE_GTK2
+ifdef MOZ_X11
+LIBS += \
+  $(DEPTH)/staticlib/$(LIB_PREFIX)gtkxtbin.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+endif
+
+
+ifeq ($(OS_ARCH),Linux)
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)unixproxy.$(LIB_SUFFIX) \
+  -lgthread-2.0 \
+  $(NULL)
+endif
+
+ifeq ($(OS_ARCH),Darwin)
+LIBS += \
+  -framework AudioToolbox \
+  -framework AudioUnit \
+  -framework Carbon \
+  -framework CoreAudio \
+  -framework OpenGL \
+  -framework QTKit \
+  -framework QuartzCore \
+  -framework Security \
+  -framework SystemConfiguration \
+  -framework IOKit \
+  -F/System/Library/PrivateFrameworks -framework CoreUI \
+  $(TK_LIBS) \
+  $(NULL)
+endif
+
+ifeq ($(OS_ARCH),WINNT)
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)windowsproxy.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+
+ifeq ($(OS_ARCH),Darwin)
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)osxproxy.$(LIB_SUFFIX) \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)imgicon.$(LIB_SUFFIX) \
+  -framework AudioToolbox \
+  -framework AudioUnit \
+  -framework Carbon \
+  -framework CoreAudio \
+  -framework OpenGL \
+  -framework QTKit \
+  -framework QuartzCore \
+  -framework Security \
+  -framework SystemConfiguration \
+  -framework IOKit \
+  -F/System/Library/PrivateFrameworks -framework CoreUI \
+  $(TK_LIBS) \
+ $(NULL)
+endif
+
+ifeq ($(OS_ARCH),WINNT)
+LIBS += \
+  $(DEPTH)/staticlib/components/$(LIB_PREFIX)windowsproxy.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+
+
+LOCAL_INCLUDES += \
+ -I. \
+ -I$(topsrcdir)/media/webrtc/signaling/transport/ \
+ -I$(topsrcdir)/media/webrtc/trunk/third_party/libjingle/source/ \
+ -I$(topsrcdir)/media/webrtc/trunk/testing/gtest/include/ \
+ -I$(topsrcdir)/media/mtransport/ \
+ $(NULL)
+
+LOCAL_INCLUDES += \
+ -I. \
+ -I$(topsrcdir)/media/webrtc/trunk/third_party/libjingle/source/ \
+ -I$(topsrcdir)/media/mtransport/third_party/ \
+ -I$(topsrcdir)/media/mtransport/third_party/ \
+ -I$(topsrcdir)/media/mtransport/third_party/nICEr/src/crypto \
+ -I$(topsrcdir)/media/mtransport/third_party/nICEr/src/ice \
+ -I$(topsrcdir)/media/mtransport/third_party/nICEr/src/net \
+ -I$(topsrcdir)/media/mtransport/third_party/nICEr/src/stun \
+ -I$(topsrcdir)/media/mtransport/third_party/nICEr/src/util \
+ -I$(topsrcdir)/media/mtransport/third_party/nrappkit/src/share \
+ -I$(topsrcdir)/media/mtransport/third_party/nrappkit/src/util/libekr \
+ -I$(topsrcdir)/media/mtransport/third_party/nrappkit/src/log \
+ -I$(topsrcdir)/media/mtransport/third_party/nrappkit/src/registry \
+ -I$(topsrcdir)/media/mtransport/third_party/nrappkit/src/stats \
+ -I$(topsrcdir)/media/mtransport/third_party/nrappkit/src/plugin \
+ -I$(topsrcdir)/media/mtransport/third_party/nrappkit/src/event \
+
+# TODO: need to expand for other platforms
+ifeq ($(OS_ARCH), Darwin)
+LOCAL_INCLUDES +=  -I$(topsrcdir)/media/mtransport/third_party/nrappkit/src/port/darwin/include
+endif
+
+ifeq ($(OS_ARCH), Linux)
+LOCAL_INCLUDES +=  -I$(topsrcdir)/media/mtransport/third_party/nrappkit/src/port/linux/include
+endif
+
+CPP_UNIT_TESTS = \
+  transportconduit_unittests.cpp \
+  $(NULL)
+
+include $(topsrcdir)/config/config.mk
+include $(topsrcdir)/media/webrtc/webrtc-config.mk
+include $(topsrcdir)/ipc/chromium/chromium-config.mk
+include $(topsrcdir)/config/rules.mk

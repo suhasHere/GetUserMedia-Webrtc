@@ -6,11 +6,13 @@
 #define CONTENT_RENDERER_MEDIA_WEBRTC_AUDIO_DEVICE_IMPL_H_
 #pragma once
 
+#include <iostream>
 #include <string>
 #include <vector>
 
 #include "modules/audio_device/main/interface/audio_device.h"
 
+//TODO:crypt: Implement Observer Callback for Device Events
 namespace mozilla 
 {
 
@@ -157,6 +159,11 @@ class WebRtcAudioDeviceLayer
   bool initialized() const { return initialized_; }
   bool playing() const { return playing_; }
   bool recording() const { return recording_; }
+  
+  webrtc::AudioTransport* audioTransport() const 
+  {
+    return audio_transport_callback_;
+  }  
 
   virtual ~WebRtcAudioDeviceLayer();
  private:

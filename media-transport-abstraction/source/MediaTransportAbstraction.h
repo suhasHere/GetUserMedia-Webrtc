@@ -107,13 +107,15 @@ public:
  * MediaSessionConduit for video
  *
  */
-class VideoSessionConduit : public mozilla::RefCounted<VideoSessionConduit>
-			  , public MediaSessionConduit
+class VideoSessionConduit : public MediaSessionConduit
 {
 public:
+  // Factory Object 
+  static mozilla::TemporaryRef<VideoSessionConduit> Create();
+
   virtual ~VideoSessionConduit() {};
 
-  virtual void AttachRenderer(VideoRenderer *renderer) = 0;
+  virtual int AttachRenderer(mozilla::RefPtr<VideoRenderer> renderer) = 0;
 
   // This method is called by the user to deliver a new captured frame to
   // VideoEngine to prepare it for eventual transporting.
@@ -139,7 +141,7 @@ public:
   virtual ~AudioSessionConduit() {};
 
   // Attach render/playout for the audio data
-  virtual void AttachRenderer(mozilla::RefPtr<AudioRenderer> aRenderer) = 0;
+  virtual int AttachRenderer(mozilla::RefPtr<AudioRenderer> aRenderer) = 0;
 
   //This method is called to insert externally captured data into
   // Audio Engine
@@ -147,6 +149,13 @@ public:
 			   unsigned int lengthSamples,
 			   uint32_t samplingFreqHz,
 			   uint64_t capture_time) = 0;
+
+  // Pull based API to get audio sample from the jitter buffe 
+  virtual void GetAudioFrame(int16_t speechData[],
+                           uint32_t samplingFreqHz,
+                           uint64_t capture_delay,
+                           unsigned int& lengthSamples) = 0;
+  
 
 };
 

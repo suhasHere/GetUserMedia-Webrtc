@@ -7,19 +7,8 @@
 #include <iostream>
 #include <string>
 #include <unistd.h>
-#include <prlock.h>
 
-#include "nspr.h"
-#include "nss.h"
-#include "ssl.h"
 
-#include "nsThreadUtils.h"
-#include "nsXPCOM.h"
-
-extern "C" {
-#include "nr_api.h"
-#include "async_timer.h"
-}
 
 #include "mozilla/Scoped.h"
 #include <MediaTransportAbstraction.h>
@@ -38,18 +27,10 @@ extern "C" {
 #include "nsStaticComponents.h"
 #include "nsITimer.h"
 
-
-#if 0
-#include "base/time.h"
-#include "base/timer.h"
-#include "base/at_exit.h"
-#endif
-
-
-
 #include "common_types.h"
 #include "voice_engine/main/interface/voe_base.h"
 #include "voice_engine/main/interface/voe_file.h"
+#include "voice_engine/main/interface/voe_hardware.h"
 #include "voice_engine/main/interface/voe_codec.h"
 #include "voice_engine/main/interface/voe_external_media.h"
 
@@ -63,6 +44,7 @@ extern "C" {
 //webrtc test utilities
 #include "resource_mgr.h"
 
+class WebRtcAudioDeviceImpl;
 
 #define GTEST_HAS_RTTI 0
 #include "gtest/gtest.h"
@@ -212,43 +194,11 @@ public:
 
 namespace {
 
-class TimerTest : public ::testing::Test {
- public:
-  TimerTest() : handle_(NULL), fired_(false) {}
-
-  int ArmTimer(int timeout) {
-    int ret = 0;
-
-    return NR_ASYNC_TIMER_SET(timeout, cb, this, &handle_);
-
-   // test_utils.sts_target()->Dispatch(
-   //     WrapRunnableRet(this, &TimerTest::ArmTimer_w, timeout, &ret),
-    //    NS_DISPATCH_SYNC);
-
-    //return ret;
-  }
-
-  int ArmTimer_w(int timeout) {
-    return NR_ASYNC_TIMER_SET(timeout, cb, this, &handle_);
-  }
-
-  static void cb(NR_SOCKET r, int how, void *arg) {
-    std::cerr << "Timer fired " << std::endl;
-
-    TimerTest *t = static_cast<TimerTest *>(arg);
-
-    t->fired_ = true;
-  }
-
- protected:
-  void *handle_;
-  bool fired_;
-};
-
 class WebrtcTest : public ::testing::Test {
  public:
   WebrtcTest():mVoiceEngine(NULL),
    		mPtrVoEBase(NULL),
+   		mPtrVoEBase2(NULL),
    		mPtrVoEFile(NULL),
    		mChannel(-1),
    		initDone(false) {
@@ -271,10 +221,8 @@ class WebrtcTest : public ::testing::Test {
 
    mPtrVoEBase = webrtc::VoEBase::GetInterface(mVoiceEngine);
    ASSERT_TRUE(mPtrVoEBase != NULL);
-
    int res = mPtrVoEBase->Init();
    ASSERT_EQ(0, res);
-
 
    mPtrVoEFile = webrtc::VoEFile::GetInterface(mVoiceEngine);
    ASSERT_TRUE(mPtrVoEFile != NULL);
@@ -342,8 +290,11 @@ class WebrtcTest : public ::testing::Test {
     int error = 0;
     Init();
     mChannel = mPtrVoEBase->CreateChannel();
+    int channel = mPtrVoEBase2->CreateChannel();
     std::cerr << " Channel created --> " << mChannel <<  std::endl;
+    std::cerr << " Channel created --> " << channel <<  std::endl;
     ASSERT_TRUE(mChannel != -1);
+#if 0
     //get pointer to AudioSessionConduit
     mAudioSession = mozilla::AudioSessionConduit::Create();
    if( !mAudioSession )
@@ -372,6 +323,7 @@ class WebrtcTest : public ::testing::Test {
     StopMedia(); 
     error = mPtrVoEBase->DeleteChannel(mChannel);
     ASSERT_TRUE(error != -1);
+#endif
   }
 
   // Play audio samples from a file to the speaker 
@@ -470,6 +422,7 @@ private:
 
   webrtc::VoiceEngine* mVoiceEngine;
   webrtc::VoEBase*    mPtrVoEBase;
+  webrtc::VoEBase*    mPtrVoEBase2;
   webrtc::VoEFile*   mPtrVoEFile;
   webrtc::VoEExternalMedia* mPtrVoEXmedia;
   webrtc::VoECodec * mPtrVoECodec;
@@ -502,7 +455,6 @@ TEST_F(WebrtcTest, TestDummyMediaWithTransport) {
 int main(int argc, char **argv)
 {
   ::testing::InitGoogleTest(&argc, argv);
-  //base::AtExitManager exit_manager;
   return RUN_ALL_TESTS();
 }
 
