@@ -1,5 +1,8 @@
 #ifndef VIDEO_TYPE_
 #define VIDEO_TYPE_
+
+namespace mozilla 
+{
 enum VideoType
 {
     kVideoI420     = 0,
@@ -18,5 +21,5 @@ enum VideoType
     kVideoBGRA     = 13,
     kVideoUnknown  = 99
 };
-
+}
 #endif

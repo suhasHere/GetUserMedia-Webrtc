@@ -20,7 +20,7 @@ mozilla::TemporaryRef<AudioSessionConduit> AudioSessionConduit::Create()
 }
 
 
-void WebrtcAudioConduit::Init()
+void WebrtcAudioConduit::Construct()
 {
   int res = 0; 
 
@@ -53,10 +53,12 @@ void WebrtcAudioConduit::Init()
   mPtrVoENetwork = webrtc::VoENetwork::GetInterface(mVoiceEngine);
   mPtrVoECodec = webrtc::VoECodec::GetInterface(mVoiceEngine);
   mPtrVoEXmedia = webrtc::VoEExternalMedia::GetInterface(mVoiceEngine);
+
 #if 0
 //only for testing
   mPtrVoEFile  = webrtc::VoEFile::GetInterface(mVoiceEngine);
 #endif
+
   if(!mPtrVoENetwork || !mPtrVoECodec || !mPtrVoEXmedia)
   {
   	printf("\nWebrtcAudioConduitImpl:: Creating Voice-Engine Interfaces Failed %d ", 
@@ -81,7 +83,7 @@ void WebrtcAudioConduit::Init()
 	return;
   }
 
-  if(-1 == mPtrVoEXmedia->SetExternalPlayoutStatus(false)) 
+  if(-1 == mPtrVoEXmedia->SetExternalPlayoutStatus(true)) 
   {
   	printf("\nWebrtcAudioConduitImpl::SetExternalPlayoutStatus Failed %d ", 
 													mPtrVoEBase->LastError());		
@@ -93,6 +95,46 @@ void WebrtcAudioConduit::Init()
   // we should be good here
   initDone = true;
 }
+
+//TODO:Crypt: Discuss the engine ownership
+void WebrtcAudioConduit::Destruct()
+{  
+  printf("\nWebrtcAudioConduitImpl::AudioSessionConduit Destruct");
+  int error = 0;   
+
+
+  //Deal with External Media
+  error = mPtrVoEBase->StopPlayout(mChannel); 
+  error = mPtrVoEXmedia->SetExternalRecordingStatus(false);
+  error = mPtrVoEXmedia->SetExternalPlayoutStatus(false);
+  mEnginePlaying = false;
+
+  //Deal with the transport  
+  error = mPtrVoEBase->StopSend(mChannel);
+  error = mPtrVoEBase->StopReceive(mChannel);
+  error = mPtrVoENetwork->DeRegisterExternalTransport(mChannel);
+  error = mPtrVoEBase->DeleteChannel(mChannel);
+  mChannel = -1;    
+
+  //clean up webrtc interfaces  
+  error = mPtrVoEXmedia->Release();
+  error = mPtrVoECodec->Release();
+  error = mPtrVoENetwork->Release();
+
+  //finally the mother of all interfaces
+   error = mPtrVoEBase->Terminate();
+   error = mPtrVoEBase->Release();
+
+   bool weOwnTheEngine = true;  
+   if(weOwnTheEngine)  
+   {
+      webrtc::VoiceEngine::Delete(mVoiceEngine);
+      mVoiceEngine = NULL;  
+   }
+
+  initDone = false;
+}
+
 
 // AudioSessionConduit Impelmentation
 
@@ -112,22 +154,33 @@ void WebrtcAudioConduit::AttachTransport(mozilla::RefPtr<TransportInterface> aTr
 //TODO:crypt: Remove the harcode of channels 
 int WebrtcAudioConduit::ConfigureSendMediaCodec(CodecConfig* codecInfo)
 {
+
+  AudioCodecConfig* codecConfig = (AudioCodecConfig*) codecInfo;
+  
+  if(!codecConfig)
+  {
+    return -1;
+  }
+
   printf("WebrtcAudioConduitImpl:: ConfigureSendMediaCode : %s ",
-											 codecInfo->mName.c_str());
+									 codecConfig->mName.c_str());
+
+
   int error = 0;
   webrtc::CodecInst cinst;
-  strcpy(cinst.plname, codecInfo->mName.c_str());
-  cinst.pltype = codecInfo->mType;
-  cinst.rate = codecInfo->mRate; // default rate
-  cinst.pacsize = codecInfo->mPacSize; // 30ms
-  cinst.plfreq =  codecInfo->mFreq;
+  strcpy(cinst.plname, codecConfig->mName.c_str());
+  cinst.pltype = codecConfig->mType;
+  cinst.rate = codecConfig->mRate; // default rate
+  cinst.pacsize = codecConfig->mPacSize; // 30ms
+  cinst.plfreq =  codecConfig->mFreq;
   cinst.channels = 1;
 
  
   error = mPtrVoECodec->SetSendCodec(mChannel, cinst);
   if(-1 == error)
   { 
-  	printf("\n Setting Send Codec Failed %d ", mPtrVoEBase->LastError());
+  	printf("\nWebrtcAudioConduitImpl:Setting Send Codec Failed %d ", 
+                                           mPtrVoEBase->LastError());
     return mPtrVoEBase->LastError();
   }
 
@@ -136,7 +189,7 @@ int WebrtcAudioConduit::ConfigureSendMediaCodec(CodecConfig* codecInfo)
   if(-1 == error) 
   {
   	printf("\n WebrtcAudioConduitImpl: StartSend() Failed %d ", 
-												mPtrVoEBase->LastError());
+									mPtrVoEBase->LastError());
     return mPtrVoEBase->LastError();
   }
   
@@ -146,28 +199,32 @@ int WebrtcAudioConduit::ConfigureSendMediaCodec(CodecConfig* codecInfo)
 //TODO:crypt: Remove the harcode here
 int WebrtcAudioConduit::ConfigureRecvMediaCodec(CodecConfig* codecInfo)
 {
-  printf("WebrtcAudioConduitImpl:: ConfigureRecvMediaCodec: %s",
-											 codecInfo->mName.c_str());
+
+
+  AudioCodecConfig* codecConfig = (AudioCodecConfig*) codecInfo;
+  
+  if(!codecConfig)
+  {
+    return -1;
+  }
+
+  printf("WebrtcAudioConduitImpl:: ConfigureSendMediaCode : %s ",
+									 codecConfig->mName.c_str());
+
   int error = 0;
   webrtc::CodecInst cinst;
-  strcpy(cinst.plname, codecInfo->mName.c_str());
-  cinst.pltype = codecInfo->mType;
-  cinst.rate = codecInfo->mRate; // default rate
-  cinst.pacsize = codecInfo->mPacSize; // 30ms
-  cinst.plfreq =  codecInfo->mFreq;
+  strcpy(cinst.plname, codecConfig->mName.c_str());
+  cinst.pltype = codecConfig->mType;
+  cinst.rate = codecConfig->mRate; // default rate
+  cinst.pacsize = codecConfig->mPacSize; // 30ms
+  cinst.plfreq =  codecConfig->mFreq;
   cinst.channels = 1;
-#if 0
-  tempCodec.pacsize = 480;
-  tempCodec.plfreq = 16000;
-  strcpy(tempCodec.plname, "ISAC");
-  tempCodec.pltype = 103;
-  tempCodec.rate = 32000;
-#endif
 
   error = mPtrVoECodec->SetRecPayloadType(mChannel,cinst);
   if(-1 == error) 
   {
-  	printf("\n Setting Receive Codec Failed %d ", mPtrVoEBase->LastError());
+  	printf("\nWebrtcAudioConduitImpl:Setting Receive Codec Failed %d ", 
+   											mPtrVoEBase->LastError());
 	return mPtrVoEBase->LastError();
   }
 
@@ -175,7 +232,7 @@ int WebrtcAudioConduit::ConfigureRecvMediaCodec(CodecConfig* codecInfo)
   if(-1 == error)
   {
   	printf("\nWebrtcAudioConduitImpl:: StartReceive Failed %d ", 
-												mPtrVoEBase->LastError());
+										mPtrVoEBase->LastError());
 	return mPtrVoEBase->LastError();
   }
 
@@ -188,7 +245,7 @@ int WebrtcAudioConduit::SendAudioFrame(const int16_t audio_data[],
                            				uint64_t capture_time) 
 {
   printf("\n WebrtcAudioConduitImpl:: SendAudioFrame numberOfSamples %d, samplingFreq %d ", 
-															numberOfSamples, samplingFreqHz);
+													numberOfSamples, samplingFreqHz);
 
   if(!initDone) 
   {
@@ -201,6 +258,7 @@ int WebrtcAudioConduit::SendAudioFrame(const int16_t audio_data[],
   	if(-1 == mPtrVoEBase->StartPlayout(mChannel))
     	return mPtrVoEBase->LastError();
     mEnginePlaying = true;
+
 #if 0
     //only for testing
 	if(-1 == mPtrVoEFile->StartRecordingPlayout(mChannel, "/tmp/suhas.pcm"))
@@ -230,8 +288,12 @@ void WebrtcAudioConduit::GetAudioFrame(int16_t speechData[],
 									    unsigned int& lengthSamples)
 {
   printf("\nWebrtcAudioConduitImpl:GetAudioFrame ");
-  mPtrVoEXmedia->ExternalPlayoutGetData((WebRtc_Word16*) speechData, (int)samplingFreqHz,
-										 10, (int&)lengthSamples);
+  lengthSamples = 0;
+
+  if(mEnginePlaying)
+   	mPtrVoEXmedia->ExternalPlayoutGetData((WebRtc_Word16*) speechData, (int)samplingFreqHz,
+								 							capture_delay, (int&)lengthSamples);
+
   printf("\nWebrtcAudioConduitImpl:GetAudioFrame:Got samples: length:%d",lengthSamples);
 }
 
@@ -239,13 +301,15 @@ void WebrtcAudioConduit::GetAudioFrame(int16_t speechData[],
 void WebrtcAudioConduit::ReceivedRTPPacket(const void *data, int len)
 {
   printf("WebrtcAudioConduiWtImpl:: ReceivedRTPPacket: Len %d ", len);
-  mPtrVoENetwork->ReceivedRTPPacket(mChannel,data,len);
+  if(mEnginePlaying)
+    mPtrVoENetwork->ReceivedRTPPacket(mChannel,data,len);
 }
 
 void WebrtcAudioConduit::ReceivedRTCPPacket(const void *data, int len)
 {
   printf("WebrtcAudioConduitImpl:: ReceivedRTCPPacket");
-  mPtrVoENetwork->ReceivedRTCPPacket(mChannel, data, len);
+  if(mEnginePlaying)
+    mPtrVoENetwork->ReceivedRTCPPacket(mChannel, data, len);
 }
 
 //WebRTC::RTP Callback Implementation

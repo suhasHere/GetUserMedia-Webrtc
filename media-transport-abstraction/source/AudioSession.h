@@ -6,7 +6,6 @@
 #define SESSION_H_
 
 #include "MediaTransportAbstraction.h"
-#include "WebRTCAudioDeviceLayer.h"
 
 // Audio Engine Includes
 #include "common_types.h"
@@ -26,9 +25,6 @@ namespace mozilla {
 /**
  * Concrete class for Audio session. Hooks up  
  *  - media-source and target to external transport 
- * TODO: crypt
- *    Move WebRTC::Transport , VoEExternalMedia into 
- *    separate classes , if it is worth doing
  */
 class WebrtcAudioConduit  : public AudioSessionConduit			
 	      		           , public webrtc::Transport
@@ -70,16 +66,18 @@ public:
 								,mEnginePlaying(false)
   {
   	printf("\n WebrtcAudioConduit : Constructor ");
-    Init(); 
+    Construct(); 
   }
 
   virtual ~WebrtcAudioConduit() 
   {
+    Destruct();
   }
 
 
 private:
-  void Init();
+  void Construct();
+  void Destruct();
 
   bool initDone;
   int mChannel;
@@ -93,8 +91,6 @@ private:
   webrtc::VoEFile*     mPtrVoEFile;
   webrtc::VoEExternalMedia* mPtrVoEXmedia;
   bool mEnginePlaying;
-  //local object
-  WebRtcAudioDeviceLayer mAudioDevice;
 };
 
 

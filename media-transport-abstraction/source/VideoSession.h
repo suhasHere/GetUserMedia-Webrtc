@@ -49,6 +49,14 @@ public:
                				uint64_t capture_time);
 			      
   
+  //Test Only
+  virtual int SendI420VideoFrame(const webrtc::ViEVideoFrameI420& video_frame,
+                                    unsigned long long captureTime = 0) ;
+
+
+
+   
+
   // Webrtc transport implementation
   virtual int SendPacket(int channel, const void *data, int len) ;
   virtual int SendRTCPPacket(int channel, const void *data, int len) ;
@@ -74,16 +82,18 @@ public:
 								,mEnginePlaying(false)
   {
   	printf("\n WebrtcVideoConduit : Constructor ");
-    Init(); 
+    Construct(); 
   }
 
   virtual ~WebrtcVideoConduit() 
   {
+   Destruct();
   }
 
 
 private:
-  void Init();
+  void Construct();
+  void Destruct();
 
   bool initDone;
   int mChannel;

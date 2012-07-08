@@ -15,7 +15,7 @@ mozilla::TemporaryRef<VideoSessionConduit> VideoSessionConduit::Create()
 }
 
 
-void WebrtcVideoConduit::Init()
+void WebrtcVideoConduit::Construct()
 {
   int res = 0; 
 
@@ -34,12 +34,11 @@ void WebrtcVideoConduit::Init()
   if(!mPtrViEBase)
   	return;
  
-  // init the engine with our audio device layer
   res = mPtrViEBase->Init();
   if(-1 == res)
   {
   	printf("\nWebrtcVideoConduitImpl::VoiceEngine Init Failed %d ", 
-												mPtrViEBase->LastError());
+										mPtrViEBase->LastError());
   	return;  	
   }
 
@@ -73,16 +72,17 @@ void WebrtcVideoConduit::Init()
 													mPtrExtCapture))	
   {
   	printf("\nWebrtcVideoConduitImpl::Unable to Allocate capture module: %d",
-															mPtrViEBase->LastError()); 
-
+													mPtrViEBase->LastError()); 
+    return;
   }
+
   printf("\nWebrtcVideoConduitImpl:: Capture Id allocated:%d", mCapId);											
-  //connect the capture device
   if(-1 == mPtrViECapture->ConnectCaptureDevice(mCapId,
 												mChannel))
   {
   	printf("\nWebrtcVideoConduitImpl::Unable to Connect capture module: %d",
-															mPtrViEBase->LastError()); 
+													mPtrViEBase->LastError()); 
+    return;
   }
 
    if(-1 == mPtrViERender->AddRenderer(mChannel, 	
@@ -98,6 +98,46 @@ void WebrtcVideoConduit::Init()
   
   // we should be good here
   initDone = true;
+}
+
+//TODO:crypt:Improve the cleanup
+void WebrtcVideoConduit::Destruct() 
+{   
+  printf("\nWebrtcVideoConduitImpl::VideoSessionConduit Destruct");   
+  int error = 0;    
+  //Deal with External Capturer   
+  error = mPtrViECapture->DisconnectCaptureDevice(mCapId);   
+  error = mPtrViECapture->ReleaseCaptureDevice(mCapId);   
+  mPtrExtCapture = NULL;    
+
+  //Deal with External Renderer   
+  error =  mPtrViERender->StopRender(mChannel);   
+  error =  mPtrViERender->RemoveRenderer(mChannel);    
+  mEnginePlaying = false;
+
+  //Deal with the transport   
+  error = mPtrViEBase->StopSend(mChannel);   
+  error = mPtrViEBase->StopReceive(mChannel);   
+  error = mPtrViENetwork->DeregisterSendTransport(mChannel);   
+  error = mPtrViEBase->DeleteChannel(mChannel);   
+  mChannel = -1;     
+
+  //clean up webrtc interfaces   
+  error = mPtrViECapture->Release();   
+  error = mPtrViERender->Release();   
+  error = mPtrViECodec->Release();   
+  error = mPtrViENetwork->Release();    
+
+  //finally the mother of all interfaces  
+   error = mPtrViEBase->Release();    
+
+   bool weOwnTheEngine = true;   
+   if(weOwnTheEngine)   
+   {         
+      webrtc::VideoEngine::Delete(mVideoEngine);     
+      mVideoEngine = NULL;   
+   } 
+  initDone = false;
 }
 
 // VideoSessionConduit Impelmentation
@@ -125,21 +165,28 @@ void WebrtcVideoConduit::AttachTransport(mozilla::RefPtr<TransportInterface> aTr
 //TODO:crypt: Remove the harcode here
 int WebrtcVideoConduit::ConfigureSendMediaCodec(CodecConfig* codecInfo)
 {
+  VideoCodecConfig* codecConfig = (VideoCodecConfig*) codecInfo;
+  if(!codecConfig)
+  {
+    return -1;
+  }
+
   printf("WebrtcVideoConduitImpl:: ConfigureSendMediaCode : %s ",
-											 codecInfo->mName.c_str());
+									 codecConfig->mName.c_str());
+
   int error = 0;
-  //hardcoded for now
   webrtc::VideoCodec  video_codec;
   memset(&video_codec, 0, sizeof(webrtc::VideoCodec));
-  //VP8 only for now
   for(int idx=0; idx < mPtrViECodec->NumberOfCodecs(); idx++)
   {
+    std::string plName = video_codec.plName;
+    printf("\n CODEC PL NAME is %s", plName.c_str());
   	if(0 == mPtrViECodec->GetCodec(idx, video_codec))
     {
-		if(video_codec.codecType == webrtc::kVideoCodecVP8)
+		if(codecConfig->mName.compare(plName) == 0)
         {
-			video_codec.width = 640;
-			video_codec.height = 480;
+			video_codec.width = codecConfig->mWidth;
+			video_codec.height = codecConfig->mHeight;
 			break;
 		}
     }
@@ -148,7 +195,8 @@ int WebrtcVideoConduit::ConfigureSendMediaCodec(CodecConfig* codecInfo)
   error = mPtrViECodec->SetSendCodec(mChannel, video_codec);
   if(-1 == error)
   { 
-  	printf("\n Setting Send Codec Failed %d ", mPtrViEBase->LastError());
+  	printf("\nWebrtcVideoConduitImpl::Setting Send Codec Failed %d ", 
+										  mPtrViEBase->LastError());
     return mPtrViEBase->LastError();
   }
 
@@ -157,7 +205,7 @@ int WebrtcVideoConduit::ConfigureSendMediaCodec(CodecConfig* codecInfo)
   if(-1 == error) 
   {
   	printf("\n WebrtcVideoConduitImpl: StartSend() Failed %d ", 
-												mPtrViEBase->LastError());
+									   mPtrViEBase->LastError());
     return mPtrViEBase->LastError();
   }
   
@@ -167,12 +215,21 @@ int WebrtcVideoConduit::ConfigureSendMediaCodec(CodecConfig* codecInfo)
 //TODO:crypt: Remove the harcode here
 int WebrtcVideoConduit::ConfigureRecvMediaCodec(CodecConfig* codecInfo)
 {
+  VideoCodecConfig* codecConfig = (VideoCodecConfig*) codecInfo;
+
+  if(!codecConfig)
+  {
+     return -1;
+  }
+  
+
   printf("WebrtcVideoConduitImpl:: ConfigureRecvMediaCodec: %s",
-											 codecInfo->mName.c_str());
+									 codecConfig->mName.c_str());
   int error = 0;
   webrtc::VideoCodec video_codec;
   memset(&video_codec, 0, sizeof(webrtc::VideoCodec));
 
+  //Set all the codecs for now .. 
   for (int idx = 0; idx < mPtrViECodec->NumberOfCodecs(); idx++) 
   {
     if(0 == mPtrViECodec->GetCodec(idx, video_codec))
@@ -202,7 +259,7 @@ int WebrtcVideoConduit::ConfigureRecvMediaCodec(CodecConfig* codecInfo)
   if(-1 == error)
   {
   	printf("\nWebrtcVideoConduitImpl:: StartReceive Failed %d ", 
-												mPtrViEBase->LastError());
+										mPtrViEBase->LastError());
 	return mPtrViEBase->LastError();
   }
 
@@ -220,7 +277,7 @@ int WebrtcVideoConduit::SendVideoFrame(unsigned char* video_frame,
                            				uint64_t capture_time)
 {
   printf("\n WebrtcVideoConduitImpl::SendVideoFrame width:%d, height:%d",
-													width,height);
+													       width,height);
 
   if(!initDone) 
   {
@@ -237,33 +294,79 @@ int WebrtcVideoConduit::SendVideoFrame(unsigned char* video_frame,
   }
 
   //insert the frame to video engine
-  mPtrExtCapture->IncomingFrame(video_frame, 
-								 video_frame_length,
-								 width, height,
-								 webrtc::kVideoI420,
-								(unsigned long long)capture_time);
+  if(-1 == mPtrExtCapture->IncomingFrame(video_frame, 
+								 		video_frame_length,
+								 		width, height,
+								 		webrtc::kVideoI420,
+										(unsigned long long)capture_time))
+  {
+  	printf("\nWebrtcVideoConduitImpl::IncomingFrameI420 Failed %d",
+  										mPtrViEBase->LastError());
+    return mPtrViEBase->LastError();
+
+  }
+
   printf("\nWebrtcVideoConduitImpl:: Inserted A Frame ");
+
+  //Test only
+  mPtrViECodec->SendKeyFrame(mChannel);
   return 0;
+}
+
+//Test Only
+int WebrtcVideoConduit::SendI420VideoFrame(const webrtc::ViEVideoFrameI420& video_frame,
+                                            unsigned long long captureTime) 
+{
+  if(!initDone)
+  {
+    printf("\n SendAudioFrame : Init Not Done ");
+    return -1;
+  }
+
+  if(!mEnginePlaying)
+  {
+    if(-1 == mPtrViERender->StartRender(mChannel))
+        return mPtrViEBase->LastError();
+
+    mEnginePlaying = true;
+    //Test only
+    mPtrViECodec->SendKeyFrame(mChannel);
+  }
+
+  //insert the frame to video engine
+  if(-1 == mPtrExtCapture->IncomingFrameI420(video_frame, captureTime))
+  {
+  	printf("\nWebrtcVideoConduitImpl::IncomingFrameI420 Failed %d",
+  										mPtrViEBase->LastError());
+    return mPtrViEBase->LastError();
+  }
+
+  printf("\nWebrtcVideoConduitImpl:: Inserted A I420 Frame ");
+
+  return 0;
+
 }
 
 // Transport Layer Callbacks 
 void WebrtcVideoConduit::ReceivedRTPPacket(const void *data, int len)
 {
   printf("WebrtcVideoConduitImpl:: ReceivedRTPPacket: Len %d ", len);
-  mPtrViENetwork->ReceivedRTPPacket(mChannel,(unsigned char*)data,len);
+  if(mEnginePlaying)
+    mPtrViENetwork->ReceivedRTPPacket(mChannel,data,len);
 }
 
 void WebrtcVideoConduit::ReceivedRTCPPacket(const void *data, int len)
 {
   printf("WebrtcVideoConduitImpl:: ReceivedRTCPPacket");
-  mPtrViENetwork->ReceivedRTCPPacket(mChannel,(unsigned char*)data,len);
+  if(mEnginePlaying)
+    mPtrViENetwork->ReceivedRTCPPacket(mChannel,data,len);
 }
 
 //WebRTC::RTP Callback Implementation
 int WebrtcVideoConduit::SendPacket(int channel, const void* data, int len)
 {
   printf("\nWebrtcVideoConduitImpl:: SendRtpPacket len %d ",len);
-  //TODO:crypt:Add lock here ???
+
    if(mTransport)
      mTransport->SendRtpPacket(data, len); 
 
@@ -273,7 +376,7 @@ int WebrtcVideoConduit::SendPacket(int channel, const void* data, int len)
 int WebrtcVideoConduit::SendRTCPPacket(int channel, const void* data, int len)
 {
   printf("WebrtcVideoConduitImpl:: SendRtcpPacket : channel %d ", channel);
-  //TODO: Add lock here ???
+
   if(mTransport)
   	mTransport->SendRtcpPacket(data, len);
 
@@ -284,15 +387,17 @@ int WebrtcVideoConduit::SendRTCPPacket(int channel, const void* data, int len)
 int WebrtcVideoConduit::FrameSizeChange(unsigned int width, unsigned int height,
 										 unsigned int numStreams)
 {
-  mRenderer->FrameSizeChange(width, height, numStreams);
+  if(mRenderer)
+    mRenderer->FrameSizeChange(width, height, numStreams);
   return 0;
 }
 
 int WebrtcVideoConduit::DeliverFrame(unsigned char* buffer, int buffer_size,
                            				uint32_t time_stamp, int64_t render_time)
 {
-  //add lock here
-  mRenderer->RenderVideoFrame(buffer, buffer_size, time_stamp, render_time);
+  //add lock here ???
+  if(mRenderer)
+    mRenderer->RenderVideoFrame(buffer, buffer_size, time_stamp, render_time);
   return 0;
 }
 

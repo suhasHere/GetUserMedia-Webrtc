@@ -6,6 +6,7 @@
 #define MEDIATRANSPORT_ABSTRACTION_
 
 #include "mozilla/RefPtr.h"
+#include "video_engine/include/vie_capture.h"
 #include "CodecConfig.h"
 #include "VideoTypes.h"
 
@@ -47,7 +48,7 @@ class VideoRenderer : public mozilla::RefCounted<VideoRenderer>
   // This method is called when a new frame should be rendered.
   virtual int RenderVideoFrame(unsigned char* buffer,
                                 unsigned int buffer_size,
-				// RTP timestamp
+								// RTP timestamp
                                 uint32_t time_stamp,
                                 // Wallclock render time in miliseconds
                                 int64_t render_time) = 0;
@@ -125,6 +126,11 @@ public:
 			   unsigned short height,
 			   VideoType video_type,
 			   uint64_t capture_time) = 0;
+
+ //test only - send I420 frame
+ virtual int SendI420VideoFrame(const webrtc::ViEVideoFrameI420& video_frame,
+									unsigned long long captureTime = 0) = 0;
+
 
 };
 

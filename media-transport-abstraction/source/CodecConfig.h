@@ -9,6 +9,11 @@ namespace mozilla {
 
 struct CodecConfig
 {
+
+};
+
+struct AudioCodecConfig : public CodecConfig
+{
   int mType;
   std::string mName;
   int mFreq;
@@ -16,11 +21,11 @@ struct CodecConfig
   int mChannels;
   int mRate;
 
-  CodecConfig()
+  AudioCodecConfig()
   {
   }
 
-  CodecConfig(int type, std::string name, int freq, int pacSize, int channels, int rate) {
+  AudioCodecConfig(int type, std::string name, int freq, int pacSize, int channels, int rate) {
     mType = type;
     mName = name;
     mFreq = freq;
@@ -29,6 +34,29 @@ struct CodecConfig
     mRate = rate;
   }
  
+};
+
+//Minimal Config- More can be added later
+struct VideoCodecConfig : public CodecConfig
+{
+
+  int mType;
+  std::string mName;
+  int mWidth;
+  int mHeight;
+
+  VideoCodecConfig()
+  {
+  }
+
+  VideoCodecConfig(int type, std::string name,int width, int height)
+  {
+    mType = type;
+    mName = name;
+    mWidth = width;
+    mHeight = height;
+  }
+
 };
 
 };

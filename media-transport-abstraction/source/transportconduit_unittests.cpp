@@ -41,39 +41,74 @@ const mozilla::Module *const *const kPStaticModules[] = {
 };
 
 
-void GenerateI420Frame()
-{
-webrtc::ViEVideoFrameI420 aFrame;
-int yPitch = 640;
-int uPitch = (640+ 1)/2;
-int vPitch = (640 + 1)/2;
-int uv_size = (641/2) * (481/2);
-
-aFrame.width = 640;
-aFrame.height = 480;
-aFrame.y_pitch = 640;
-aFrame.u_pitch = uPitch;
-aFrame.v_pitch = vPitch;
-
-aFrame.y_plane = new unsigned char[yPitch * 480];
-aFrame.u_plane = new unsigned char[uPitch * (480/2)];
-aFrame.v_plane = new unsigned char[vPitch * (480/2)];
-
-//memset(aFrame.y_plane,0,sizeof(*aFrame.y_plane)*yplane_bytes); 
-//memset(chroma_planes,128,sizeof(*chroma_planes)*chroma_plane_bytes);
-};
-
-class VideoSendAndReceive
-{
-
-
-};
-
 //Foreward Declaration
 class AudioStartCaptureEvent;
 class AudioStartRenderEvent;
 
 
+/**
+ * A Dummy Video Conduit Tester. 
+ *
+**/
+class VideoSendAndReceive
+{
+public:
+  VideoSendAndReceive():width(640), height(480)
+  {
+  }
+
+  ~VideoSendAndReceive()
+  {
+  }
+
+  void Init(mozilla::RefPtr<mozilla::VideoSessionConduit> aSession)
+  {
+  	mSession = aSession;
+  }
+  void GenerateAndReadSamples()
+  {
+    // let's send 33 frames - no big logic here 
+    	webrtc::ViEVideoFrameI420 *aFrame = new webrtc::ViEVideoFrameI420();
+    	int yPitch = width;
+    	int uPitch = (width + 1)/2;
+    	int vPitch = (width + 1)/2;
+    	int uv_size = (width/2) * (height/2);
+
+    	aFrame->width = width;
+    	aFrame->height = height;
+    	aFrame->y_pitch = width;
+    	aFrame->u_pitch = uPitch;
+    	aFrame->v_pitch = vPitch;
+
+    	aFrame->y_plane = new unsigned char[yPitch * width];
+    	aFrame->u_plane = new unsigned char[uPitch * (height/2)];
+    	aFrame->v_plane = new unsigned char[vPitch * (height/2)];
+
+    	memset(aFrame->y_plane, 16, (width * height));
+    	memset(aFrame->u_plane, 128, uv_size);
+    	memset(aFrame->v_plane, 128, uv_size);
+
+     	printf("\n Video Frame is 0x%p, ", aFrame);
+        int count = 33;
+        do
+        {
+	 	mSession->SendI420VideoFrame(*aFrame, 0);
+		usleep(500 * 1000);
+		--count;
+       }while(count > 0);
+    delete aFrame;
+  }
+private:
+mozilla::RefPtr<mozilla::VideoSessionConduit> mSession;
+int width, height;
+};
+
+
+
+/**
+ * A Dummy AudioConduit Tester
+ *
+**/
 class AudioSendAndReceive
 {
 public:
@@ -89,7 +124,7 @@ public:
   ~AudioSendAndReceive()
   {
   std::cout<<"~AudioSendAndReceive()"<<std::endl;  
-    PR_DestroyLock(lck);
+  //PR_DestroyLock(lck);
   }
 
  void Init(mozilla::RefPtr<mozilla::AudioSessionConduit> aSession, 
@@ -99,8 +134,8 @@ public:
   iFile = fileIn;
   oFile = fileOut;
 #if 0
-    //create our threads
-    if(!mAudioCaptureThread)
+// UNCOMMENT THIS AFTER WE FIX THE THREAD LINKER ISSUS
+  if(!mAudioCaptureThread)
   {
       NS_NewThread(getter_AddRefs(mAudioCaptureThread),
                          nsnull,
@@ -117,12 +152,11 @@ public:
 #endif
  }
 
-  void Start();
-
-  void StartTest(); 
+  //Kick start the test
   void GenerateAndReadSamples();  
+
+  //void Start();
 private:
-  //void GenerateSamples();
   void ReadSamples();
 
   mozilla::RefPtr<mozilla::AudioSessionConduit> mSession;
@@ -138,9 +172,8 @@ private:
 
 };
 
-// This class acts as source for providing PCM audio samples
-// In the actual usage the samples come from MediaStream
 #if 0
+//UNCOMMENT THIS AFTER WE FIX THE THREAD LINKER ISSUES
 class AudioStartCaptureEvent : public nsRunnable
 {
 public:
@@ -182,12 +215,10 @@ public:
 private:
 AudioSendAndReceive* mOwner;
 };
-#endif
 
 void AudioSendAndReceive::Start()
  {
     
-#if 0    
     eventStartCapture = new AudioStartCaptureEvent(this);
     mAudioCaptureThread->Dispatch(eventStartCapture,0);
 
@@ -200,7 +231,6 @@ void AudioSendAndReceive::Start()
       std::cout << " Waating for the events to end " << std::endl;
       sleep(2);
     }
-#endif
  }
 
 void AudioSendAndReceive::ReadSamples()
@@ -216,30 +246,30 @@ void AudioSendAndReceive::ReadSamples()
   //sleep now
   usleep(10 * 1000);
 }
+#endif
 
+//Hardcoded for 16 bit samples for now
+//TODO:crypt: Improve fiele handling - this is too dumb a impln
 void AudioSendAndReceive::GenerateAndReadSamples()
 {
   int16_t audioIn10ms[160]; // samples sent to the transport
-  int16_t audioOut10ms[160]; // samples sent to the transport
+  int16_t audioOut10ms[160]; // samples  to write out
   ifstream iStream;
-  ofstream oStream;
   const int sample_length  = 160;
 
   memset(audioIn10ms, 0, 160 * sizeof(short));
   memset(audioOut10ms, 0, 160 * sizeof(short));
 
   iStream.open(iFile.c_str(), ios::binary);
-  //oStream.open(oFile.c_str(), ios::binary);
 
-//  FILE* pFile;
- // pFile = fopen ( oFile.c_str() , "wb" );
+  FILE* pFile;
+  pFile = fopen ( oFile.c_str() , "wb" );
   streamsize curPos = 0;
+
   if (iStream.is_open())
   {
     while ( iStream.good() )
     {
-	    	
-		printf("\nDone sleeping .. start writing" );
         streamsize sz = 320; 
 	    iStream.get((char*)audioIn10ms, sz);	
     	mSession->SendAudioFrame(audioIn10ms,sample_length, 16000, 10);
@@ -248,16 +278,12 @@ void AudioSendAndReceive::GenerateAndReadSamples()
 		iStream.seekg(curPos,ios::beg);
 		//read a sample .. not a perfect way to step
 		int sampleLength = 0;
-        usleep(10*1000);
     	mSession->GetAudioFrame(audioOut10ms, (uint32_t) 16000,(uint64_t) 10, (unsigned int&)sampleLength);
-//		printf("\nwriting %d bytes to filed", sizeof(audioOut10ms));
-  //		fwrite (audioOut10ms, 1 , sizeof(audioOut10ms) , pFile );
-//		printf("\nDone writing audio to the file ");
+  		fwrite (audioOut10ms, 1 , sizeof(audioOut10ms) , pFile );
     }
     std::cout << " Done Reading the file " << std::endl;
     iStream.close();
- // 	fclose (pFile);
-    oStream.close();
+  	fclose (pFile);
   } else 
   {
 	std::cout << "Opening file failed"<< std::endl;
@@ -287,13 +313,55 @@ public:
   }
 };
 
-//Fake Transport Audio
-class FakeAudioTransport : public mozilla::TransportInterface 
+// Dummy Video Target for the conduit
+//TODO:crypt: What do we do with the delivered frames ??
+class DummyVideoTarget: public mozilla::VideoRenderer
 {
 public:
-  virtual ~FakeAudioTransport()
+  DummyVideoTarget()
   {
-  	std::cout << " Deleting Fake Audio Transport " << std::endl;
+    std::cerr << " DummyVideoTarget created " << std::endl;
+  }
+
+  virtual ~DummyVideoTarget()
+  {
+    std::cerr << " Deleting Dummy Video Renderer " << std::endl;
+  }
+
+
+  int RenderVideoFrame(unsigned char* buffer,
+                                unsigned int buffer_size,
+                                // RTP timestamp
+                                uint32_t time_stamp,
+                                // Wallclock render time in miliseconds
+                                int64_t render_time)
+ {
+  //write the frame to the file
+  printf("\n Deliver  Frame called %d ", buffer_size);
+  return 0;
+ }
+
+ int FrameSizeChange(unsigned int, unsigned int, unsigned int)
+ {
+    //do nothing
+    return 0;
+ }
+
+
+};
+
+
+//Fake Transport Audio/Video
+class FakeMediaTransport : public mozilla::TransportInterface 
+{
+public:
+  FakeMediaTransport():mAudio(false),mVideo(false)
+  {
+  }
+
+  ~FakeMediaTransport()
+  {
+  	std::cout << " Deleting Fake Media Transport " << std::endl;
   }
 
   virtual int SendRtpPacket(const void* data, int len)
@@ -302,39 +370,41 @@ public:
   	printf("\nFAT: SendRtpPacket(%d): Len:%d ",numPkts, len );
     // we just return thus obtained packet back to the engine 
     // for decoding and eventual playing
-    mSession->ReceivedRTPPacket(data,len);
-    //let's read a sample
-    printf("\nReadSamples" );
-  	int16_t audio10ms[160];
-  	unsigned int sample_length = 0;
- 	memset(audio10ms, 0, 160 * sizeof(short));
+    if(mAudio)
+      mAudioSession->ReceivedRTPPacket(data,len);
+    else
+      mVideoSession->ReceivedRTPPacket(data,len);
 
-  	//mSession->GetAudioFrame(audio10ms,(uint32_t) 16000,(uint64_t) 10,sample_length);
-
-  	//printf("\nGetAudioFrame: Sample length:%d ",sample_length) ;
-
- 
     return 0;
   }
 
   virtual int SendRtcpPacket(const void* data, int len)
   {
   	std::cout << " FAT: SendRtcpPacket: " << std::endl;
-    mSession->ReceivedRTCPPacket(data,len);
+    if(mAudio)
+      mAudioSession->ReceivedRTCPPacket(data,len);
+    else
+      mVideoSession->ReceivedRTCPPacket(data,len);
+
     return 0;
   }
 
-  // only for testing ..
-  FakeAudioTransport(mozilla::RefPtr<mozilla::AudioSessionConduit> aSession):
-								mSession(aSession)
+  void SetAudioSession(mozilla::RefPtr<mozilla::AudioSessionConduit> aSession)
   {
-  	numPkts = 0;
+  	mAudioSession = aSession;
+    mAudio = true;
   }
 
+  void SetVideoSession(mozilla::RefPtr<mozilla::VideoSessionConduit> aSession)
+  {
+  	mVideoSession = aSession;
+    mVideo = true;
+  }
 private:
-  mozilla::RefPtr<mozilla::AudioSessionConduit> mSession;
+  mozilla::RefPtr<mozilla::AudioSessionConduit> mAudioSession;
+  mozilla::RefPtr<mozilla::VideoSessionConduit> mVideoSession;
   int numPkts;
-
+  bool mAudio, mVideo;
 };
 
 
@@ -344,15 +414,14 @@ class TransportConduitTest : public ::testing::Test {
  public:
   TransportConduitTest() 
   {
-    ifilename = "audio_short16.pcm";
-    ofilename = "recorded.pcm";
-     std::string rootpath = ProjectRootPath();
+    iAudiofilename = "audio_short16.pcm";
+    oAudiofilename = "recorded.pcm";
+    std::string rootpath = ProjectRootPath();
 
-   fileToPlay = rootpath+"media"+kPathDelimiter+"webrtc"+kPathDelimiter+"trunk"+kPathDelimiter+"test"+kPathDelimiter+"data"+kPathDelimiter+"voice_engine"+kPathDelimiter+ifilename;
-
+   fileToPlay = rootpath+"media"+kPathDelimiter+"webrtc"+kPathDelimiter+"trunk"+kPathDelimiter+"test"+kPathDelimiter+"data"+kPathDelimiter+"voice_engine"+kPathDelimiter+iAudiofilename;
 
    std::cout << " Filename to play is " << fileToPlay << std::endl;
-   fileToRecord = rootpath+kPathDelimiter+ofilename;
+   fileToRecord = rootpath+kPathDelimiter+"media"+kPathDelimiter+"mtransport"+kPathDelimiter+"test"+kPathDelimiter+oAudiofilename;
    std::cout << " Filename to record is " << fileToRecord<< std::endl;
   }
 
@@ -360,22 +429,28 @@ class TransportConduitTest : public ::testing::Test {
   {
   }
 
-  //2. Dump audio samples to dummy external transport
-  void TestDummyMediaAndTransport() 
+  //1. Dump audio samples to dummy external transport
+  void TestDummyAudioAndTransport() 
   {
     //get pointer to AudioSessionConduit
     mAudioSession = mozilla::AudioSessionConduit::Create();
     if( !mAudioSession )
       ASSERT_TRUE(mAudioSession != NULL);
-    std::cerr << " AudioSession is " << mAudioSession << std::endl;
-    // create audio-renderer, audio-transport
+
     mAudioRenderer = new DummyAudioTarget();
-    mAudioTransport = new FakeAudioTransport(mAudioSession);
+	ASSERT_TRUE(mAudioRenderer != NULL);
+
+    FakeMediaTransport* xport = new FakeMediaTransport();
+	ASSERT_TRUE(xport != NULL);
+    xport->SetAudioSession(mAudioSession);
+    mAudioTransport = xport;
+
     // attach the transport and renderer to audio-conduit
     mAudioSession->AttachRenderer(mAudioRenderer);
     mAudioSession->AttachTransport(mAudioTransport);
+
     //configure send and recv codecs on the audio-conduit
-    mozilla::CodecConfig cinst;
+    mozilla::AudioCodecConfig cinst;
     cinst.mChannels = 1;
     cinst.mName = "ISAC";
     cinst.mType = 103;
@@ -383,39 +458,81 @@ class TransportConduitTest : public ::testing::Test {
     cinst.mPacSize = 480; // 30ms
     cinst.mFreq = 16000;
     mAudioSession->ConfigureSendMediaCodec(&cinst);
+
+    cinst.mRate = 32000;
     mAudioSession->ConfigureRecvMediaCodec(&cinst);
+
     //start generating samples
     audioTester.Init(mAudioSession, fileToPlay,fileToRecord);
   	audioTester.GenerateAndReadSamples();
   }
 
+  //2. Dump audio samples to dummy external transport
+  void TestDummyVideoAndTransport()
+  {
+    //get pointer to VideoSessionConduit
+    mVideoSession = mozilla::VideoSessionConduit::Create();
+    if( !mVideoSession )
+      ASSERT_TRUE(mVideoSession != NULL);
+
+
+    // create audio-renderer, audio-transport
+    mVideoRenderer = new DummyVideoTarget();
+    ASSERT_TRUE(mVideoRenderer != NULL);
+
+    FakeMediaTransport* xport = new FakeMediaTransport();
+    ASSERT_TRUE(xport != NULL);
+
+    xport->SetVideoSession(mVideoSession);
+    mVideoTransport = xport;
+
+    // attach the transport and renderer to video-conduit
+    mVideoSession->AttachRenderer(mVideoRenderer);
+    mVideoSession->AttachTransport(mVideoTransport);
+
+    //configure send and recv codecs on theconduit
+    mozilla::VideoCodecConfig cinst;
+    cinst.mName = "VP8";
+    cinst.mHeight = 480;
+    cinst.mWidth  = 640; 
+
+    mVideoSession->ConfigureSendMediaCodec(&cinst);
+    mVideoSession->ConfigureRecvMediaCodec(&cinst);
+
+    //start generating samples
+    videoTester.Init(mVideoSession );
+    videoTester.GenerateAndReadSamples();
+  }
 
 private:
+  //Audio Conduit Test Objects
   mozilla::RefPtr<mozilla::AudioSessionConduit> mAudioSession;
   mozilla::RefPtr<mozilla::AudioRenderer> mAudioRenderer;
   mozilla::RefPtr<mozilla::TransportInterface> mAudioTransport;
   AudioSendAndReceive audioTester;
+
+  //Video Conduit Test Objects
+  mozilla::RefPtr<mozilla::VideoSessionConduit> mVideoSession;
+  mozilla::RefPtr<mozilla::VideoRenderer> mVideoRenderer;
+  mozilla::RefPtr<mozilla::TransportInterface> mVideoTransport;
+  VideoSendAndReceive videoTester;
+
   std::string fileToPlay;
   std::string fileToRecord;
-  std::string ifilename;
-  std::string ofilename;
+  std::string iAudiofilename;
+  std::string oAudiofilename;
 };
 
 
-// Test 1: Play a file to the speaker
-//TEST_F(WebrtcTest, TestSpeakerPlayout) {
- // TestAudioFileLocalPlayout();
-//}
-
-// Test 2: Test Dummy External Xport
-TEST_F(TransportConduitTest, TestDummyMediaWithTransport) {
-  TestDummyMediaAndTransport();
+// Test 1: Test Dummy External Xport
+TEST_F(TransportConduitTest, TestDummyAudioWithTransport) {
+  TestDummyAudioAndTransport();
 }
 
-//TEST_F(WebrtcTest, TestDummyExternalXportPlayback) {
-// TestAudioFilePlayoutExternalTransport();
-//}
-
+// Test 2: Test Dummy External Xport
+TEST_F(TransportConduitTest, TestDummyVideoWithTransport) {
+  TestDummyVideoAndTransport();
+}
 
 }  // end namespace
 
